@@ -6,7 +6,7 @@ const crypto = require ('crypto');
 let data = [];
 
 try {
-  data = JSON.parse(fs.readFileSync('database.json'));
+  data = JSON.parse(fs.readFileSync('BDD.json'));
 } catch (err) {
   console.error('Error reading database file:', err);
 }
@@ -20,6 +20,7 @@ function handleRequest(req, res) {
     const path = parsedUrl.pathname;
     const query = parsedUrl.query;
     const method = req.method;
+    const id = parseInt(path.split('/')[2]);
 
     function searchItems(query) {
       const lowerQuery = query.toLowerCase();
@@ -34,15 +35,25 @@ function handleRequest(req, res) {
   }
   switch (method) {
     case 'GET':
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader(
+        "Access-Control-Allow-Methods",
+        "OPTIONS, GET, POST, PUT, DELETE"
+      );
+      res.setHeader(
+        "Access-Control-Allow-Headers",
+        "Origin, Content-Type, X-Auth-Token"
+      );
       if (path === '/') {
         // Renvoyer la liste complète des éléments
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify(data));
       } else if (path.startsWith('/items/')) {
         // Renvoyer un élément spécifique en fonction de son ID
-        const id = parseInt(path.split('/')[2]);
+        // const id = parseInt(path.split('/')[2]);
         const lowerId = id.toString().toLowerCase();
-        const item = findById(lowerId);        
+        // const item = findById(lowerId);      
+        const item = findById(path.split('/')[2]);  
         if (item) {
           res.setHeader('Content-Type', 'application/json');
           res.end(JSON.stringify(item));
@@ -86,9 +97,8 @@ function handleRequest(req, res) {
         break;
 
         case 'PUT':
-          // Modifier un élément existant dans la liste
-          const id = parseInt(path.split('/')[2]);
-          const item = findById(id);
+          // Trouver l'élément existant par son ID
+          const item = findById(path.split('/')[2]);
           if (item) {
             let body = '';
             req.on('data', chunk => {
@@ -96,23 +106,26 @@ function handleRequest(req, res) {
             });
             req.on('end', () => {
               const updated = JSON.parse(body);
-              data[data.indexOf(item)] = updated;
-              fs.writeFileSync('database.json', JSON.stringify(data));
+              // Utiliser l'opérateur spread pour combiner les propriétés de l'objet existant avec les propriétés mises à jour
+              const newItem = {...item, ...updated};
+              data[data.indexOf(item)] = newItem;
+              fs.writeFileSync('BDD.json', JSON.stringify(data));
               res.setHeader('Content-Type', 'application/json');
-              res.end(JSON.stringify(updated));
+              res.end(JSON.stringify(newItem));
             });
           } else {
             res.statusCode = 404;
-            res.end();
-          }
-          break;
+    res.end();
+  }
+  break;
+
         case 'DELETE':
           // Supprimer un élément de la liste
           const itemId = parseInt(path.split('/')[2]);
           const foundItem = findById(itemId);
           if (foundItem) {
             data.splice(data.indexOf(foundItem), 1);
-            fs.writeFileSync('database.json', JSON.stringify(data));
+            fs.writeFileSync('BDD.json', JSON.stringify(data));
             res.end();
           } else {
             res.statusCode = 404;
